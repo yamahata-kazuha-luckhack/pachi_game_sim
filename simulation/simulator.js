@@ -10,6 +10,7 @@ class PachislotSimulator {
         };
         
         this.machineData = null;
+        this.popularityMessages = []; // 人気度変動メッセージ
         this.init();
     }
 
@@ -24,6 +25,7 @@ class PachislotSimulator {
             // 初期表示
             this.updateUI();
             this.displayMachines();
+            this.displayPopularityMessages();
             
             console.log('パチスロホールシミュレーターが初期化されました');
         } catch (error) {
@@ -100,15 +102,24 @@ class PachislotSimulator {
         const popularityClass = this.getPopularityClass(machine.総合人気度);
         const popularityText = this.getPopularityText(machine.総合人気度);
         
+        // 人気度予測を取得
+        const forecast = this.machineData.getPopularityForecast(machine.ID);
+        let forecastHtml = '';
+        if (forecast && forecast.confidence > 0.3) {
+            const trendIcon = forecast.trend === 'up' ? '📈' : forecast.trend === 'down' ? '📉' : '➡️';
+            forecastHtml = `<div class="forecast ${forecast.trend}">${trendIcon} 予測: ${forecast.predictedChange > 0 ? '+' : ''}${forecast.predictedChange}</div>`;
+        }
+        
         div.innerHTML = `
-            <h4>${machine['名前']}</h4>
-            <div class="machine-info">
-                <span>${machine['メーカー']}</span>
+            <div class="machine-header">
+                <h3>${machine.名前}</h3>
                 <span class="popularity ${popularityClass}">${popularityText}</span>
             </div>
-            <div class="machine-info">
-                <span>¥${machine['価格'].toLocaleString()}</span>
-                <span>${machine['台タイプ']}</span>
+            <div class="machine-details">
+                <p><strong>メーカー:</strong> ${machine.メーカー}</p>
+                <p><strong>価格:</strong> ¥${machine.価格.toLocaleString()}</p>
+                <p><strong>総合人気度:</strong> ${machine.総合人気度}</p>
+                ${forecastHtml}
             </div>
         `;
         
@@ -132,62 +143,158 @@ class PachislotSimulator {
 
     // パチスロ台を選択
     selectMachine(machine) {
-        // 前の選択を解除
-        document.querySelectorAll('.machine-item').forEach(item => {
-            item.classList.remove('selected');
-        });
-        
-        // 新しい選択を設定
-        document.querySelector(`[data-machine-id="${machine.ID}"]`).classList.add('selected');
-        
         this.gameState.selectedMachine = machine;
         this.displayMachineDetail(machine);
         this.showTradePanel();
+        this.updatePurchaseInfo();
+        this.updateSaleInfo();
+        
+        // 選択状態を更新
+        document.querySelectorAll('.machine-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        document.querySelector(`[data-machine-id="${machine.ID}"]`).classList.add('selected');
     }
 
     // パチスロ台詳細を表示
     displayMachineDetail(machine) {
-        const detailDiv = document.getElementById('machine-detail');
+        const detailArea = document.getElementById('machine-detail');
+        const popularityClass = this.getPopularityClass(machine.総合人気度);
+        const popularityText = this.getPopularityText(machine.総合人気度);
         
-        detailDiv.innerHTML = `
-            <div class="detail-header">
-                <h3>${machine['名前']}</h3>
+        // 人気度履歴を取得
+        const history = this.machineData.getPopularityHistory(machine.ID);
+        const historyHtml = this.createHistoryChart(history);
+        
+        // 人気度予測を取得
+        const forecast = this.machineData.getPopularityForecast(machine.ID);
+        let forecastHtml = '';
+        if (forecast) {
+            const trendIcon = forecast.trend === 'up' ? '📈' : forecast.trend === 'down' ? '📉' : '➡️';
+            const confidenceText = Math.round(forecast.confidence * 100);
+            forecastHtml = `
+                <div class="forecast-info">
+                    <h4>人気度予測</h4>
+                    <p>${trendIcon} 予測変動: ${forecast.predictedChange > 0 ? '+' : ''}${forecast.predictedChange}</p>
+                    <p>確信度: ${confidenceText}%</p>
+                </div>
+            `;
+        }
+        
+        detailArea.innerHTML = `
+            <h2>${machine.名前}</h2>
+            <div class="machine-info">
+                <div class="info-row">
+                    <span class="label">メーカー:</span>
+                    <span class="value">${machine.メーカー}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">シリーズ:</span>
+                    <span class="value">${machine.シリーズ}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">IPタイプ:</span>
+                    <span class="value">${machine.IPタイプ}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">価格:</span>
+                    <span class="value">¥${machine.価格.toLocaleString()}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">何号機か:</span>
+                    <span class="value">${machine.何号機か}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">台タイプ:</span>
+                    <span class="value">${machine.台タイプ}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">コイン単価:</span>
+                    <span class="value">¥${machine.コイン単価}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">純増:</span>
+                    <span class="value">${machine.純増}</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">1000円当たりのコイン持ち:</span>
+                    <span class="value">${machine['1000円当たりのコイン持ち']}枚</span>
+                </div>
+                <div class="info-row">
+                    <span class="label">発売日:</span>
+                    <span class="value">${machine.発売日}</span>
+                </div>
             </div>
-            <div class="detail-content">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                    <div>
-                        <strong>メーカー:</strong> ${machine['メーカー']}<br>
-                        <strong>シリーズ:</strong> ${machine['シリーズ']}<br>
-                        <strong>IPタイプ:</strong> ${machine['IPタイプ']}<br>
-                        <strong>台タイプ:</strong> ${machine['台タイプ']}
+            
+            <div class="popularity-section">
+                <h3>人気度情報</h3>
+                <div class="popularity-breakdown">
+                    <div class="popularity-item">
+                        <span class="label">スペック:</span>
+                        <span class="value">${machine.人気度_スペック}/10</span>
                     </div>
-                    <div>
-                        <strong>価格:</strong> ¥${machine['価格'].toLocaleString()}<br>
-                        <strong>コイン単価:</strong> ¥${machine['コイン単価']}<br>
-                        <strong>純増:</strong> ${machine['純増']}<br>
-                        <strong>1000円当たり:</strong> ${machine['1000円当たりのコイン持ち']}枚
+                    <div class="popularity-item">
+                        <span class="label">IP:</span>
+                        <span class="value">${machine.人気度_IP}/10</span>
+                    </div>
+                    <div class="popularity-item">
+                        <span class="label">発売日:</span>
+                        <span class="value">${machine.人気度_発売日}/10</span>
+                    </div>
+                    <div class="popularity-item total">
+                        <span class="label">総合人気度:</span>
+                        <span class="value ${popularityClass}">${machine.総合人気度}/10 (${popularityText})</span>
                     </div>
                 </div>
-                <div style="margin-bottom: 20px;">
-                    <strong>総合人気度:</strong> 
-                    <span class="popularity ${this.getPopularityClass(machine.総合人気度)}">
-                        ${machine.総合人気度} (${this.getPopularityText(machine.総合人気度)})
-                    </span>
-                </div>
-                <div>
-                    <strong>台の説明:</strong> ${machine['台の説明']}<br>
-                    <strong>スペック表:</strong> ${machine['スペック表']}<br>
-                    <strong>発売日:</strong> ${machine['発売日'].toLocaleDateString('ja-JP')}
-                </div>
+                ${forecastHtml}
+            </div>
+            
+            <div class="description-section">
+                <h3>台の説明</h3>
+                <p>${machine.台の説明}</p>
+            </div>
+            
+            <div class="history-section">
+                <h3>人気度履歴</h3>
+                ${historyHtml}
             </div>
         `;
     }
 
+    // 人気度履歴チャートを作成
+    createHistoryChart(history) {
+        if (history.length < 2) {
+            return '<p>履歴データが不足しています</p>';
+        }
+        
+        const chartData = history.map(h => ({
+            week: h.week,
+            popularity: h.popularity,
+            change: h.change
+        }));
+        
+        let chartHtml = '<div class="history-chart">';
+        chartData.forEach((data, index) => {
+            const changeClass = data.change > 0 ? 'positive' : data.change < 0 ? 'negative' : 'neutral';
+            const changeIcon = data.change > 0 ? '↗️' : data.change < 0 ? '↘️' : '→';
+            
+            chartHtml += `
+                <div class="chart-item ${changeClass}">
+                    <div class="week">第${data.week}週</div>
+                    <div class="popularity">${data.popularity}</div>
+                    <div class="change">${changeIcon} ${data.change > 0 ? '+' : ''}${data.change}</div>
+                </div>
+            `;
+        });
+        chartHtml += '</div>';
+        
+        return chartHtml;
+    }
+
     // 取引パネルを表示
     showTradePanel() {
-        document.getElementById('trade-panel').style.display = 'block';
-        this.updatePurchaseInfo();
-        this.updateSaleInfo();
+        const tradePanel = document.getElementById('trade-panel');
+        tradePanel.style.display = 'block';
     }
 
     // 購入情報を更新
@@ -195,93 +302,80 @@ class PachislotSimulator {
         if (!this.gameState.selectedMachine) return;
         
         const quantity = parseInt(document.getElementById('purchase-quantity').value);
-        const unitPrice = this.gameState.selectedMachine['価格'];
-        const totalPrice = unitPrice * quantity;
+        const machine = this.gameState.selectedMachine;
+        const totalPrice = quantity * machine.価格;
         
-        document.getElementById('unit-price').textContent = `¥${unitPrice.toLocaleString()}`;
-        document.getElementById('total-price').textContent = `¥${totalPrice.toLocaleString()}`;
+        document.getElementById('purchase-total').textContent = `¥${totalPrice.toLocaleString()}`;
+        
+        // 島単位購入の情報も表示
+        if (quantity >= 20) {
+            const islandPrice = calculateIslandPrice(machine.価格, quantity);
+            const savings = totalPrice - islandPrice;
+            document.getElementById('island-discount').textContent = `島割引適用: ¥${savings.toLocaleString()}お得`;
+            document.getElementById('island-discount').style.display = 'block';
+        } else {
+            document.getElementById('island-discount').style.display = 'none';
+        }
     }
 
     // 売却情報を更新
     updateSaleInfo() {
         if (!this.gameState.selectedMachine) return;
         
-        const machineId = this.gameState.selectedMachine.ID;
-        const ownedQuantity = this.gameState.ownedMachines.get(machineId) || 0;
+        const machine = this.gameState.selectedMachine;
+        const ownedQuantity = this.gameState.ownedMachines.get(machine.ID) || 0;
         
         if (ownedQuantity === 0) {
-            document.getElementById('sale-quantity').innerHTML = '<option value="0">所有していません</option>';
-            document.getElementById('sale-price').textContent = '¥0';
-            document.getElementById('sale-btn').disabled = true;
-        } else {
-            document.getElementById('sale-quantity').innerHTML = `
-                <option value="1">1台</option>
-                <option value="5">5台</option>
-                <option value="10">10台</option>
-                <option value="${ownedQuantity}">全台(${ownedQuantity}台)</option>
-            `;
-            document.getElementById('sale-btn').disabled = false;
-            this.updateSalePrice();
+            document.getElementById('sale-section').style.display = 'none';
+            return;
         }
+        
+        document.getElementById('sale-section').style.display = 'block';
+        
+        const saleQuantitySelect = document.getElementById('sale-quantity');
+        saleQuantitySelect.innerHTML = '';
+        
+        for (let i = 1; i <= ownedQuantity; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = `${i}台`;
+            saleQuantitySelect.appendChild(option);
+        }
+        
+        this.updateSalePrice();
     }
 
     // 売却価格を更新
     updateSalePrice() {
-        const quantity = parseInt(document.getElementById('sale-quantity').value);
-        if (quantity === 0) return;
+        if (!this.gameState.selectedMachine) return;
         
-        const salePrice = this.calculateSalePrice(this.gameState.selectedMachine['価格']) * quantity;
+        const quantity = parseInt(document.getElementById('sale-quantity').value);
+        const machine = this.gameState.selectedMachine;
+        const marketPrice = calculateUsedPrice(machine.価格, machine.総合人気度);
+        const salePrice = calculateSalePrice(marketPrice) * quantity;
+        
         document.getElementById('sale-price').textContent = `¥${salePrice.toLocaleString()}`;
+        document.getElementById('market-price').textContent = `市場価格: ¥${marketPrice.toLocaleString()}`;
     }
 
     // 売却価格を計算
     calculateSalePrice(marketPrice) {
-        return Math.round(marketPrice * 0.9); // 市場価格の90%
+        return Math.round(marketPrice * 0.9);
     }
 
-    // 検索機能
+    // パチスロ台を検索
     searchMachines() {
-        const searchTerm = document.getElementById('search-input').value.trim();
-        if (!searchTerm) {
-            this.displayMachines();
-            return;
-        }
-        
-        const searchResults = this.machineData.searchMachines(searchTerm);
-        this.displayMachines(searchResults);
+        const query = document.getElementById('search-input').value;
+        const results = this.machineData.searchMachines(query);
+        this.displayMachines(results);
     }
 
-    // フィルター機能
+    // パチスロ台をフィルター
     filterMachines() {
-        const makerFilter = document.getElementById('maker-filter').value;
-        const popularityFilter = document.getElementById('popularity-filter').value;
-        
-        let filteredMachines = this.machineData;
-        
-        if (makerFilter) {
-            filteredMachines = filteredMachines.getMachinesByMaker(makerFilter);
-        }
-        
-        if (popularityFilter) {
-            let minPop, maxPop;
-            switch (popularityFilter) {
-                case 'high':
-                    minPop = 7.5;
-                    maxPop = 10;
-                    break;
-                case 'medium':
-                    minPop = 2.5;
-                    maxPop = 7.5;
-                    break;
-                case 'low':
-                    minPop = 0;
-                    maxPop = 2.5;
-                    break;
-            }
-            filteredMachines = filteredMachines.getMachinesByPopularity(minPop, maxPop);
-        }
-        
-        this.displayMachines(filteredMachines);
+        const maker = document.getElementById('maker-filter').value;
+        const popularity = document.getElementById('popularity-filter').value;
+        const results = this.machineData.filterMachines(maker, popularity);
+        this.displayMachines(results);
     }
 
     // パチスロ台を購入
@@ -292,98 +386,161 @@ class PachislotSimulator {
         }
         
         const quantity = parseInt(document.getElementById('purchase-quantity').value);
-        const totalPrice = this.gameState.selectedMachine['価格'] * quantity;
+        const machine = this.gameState.selectedMachine;
+        let totalPrice = quantity * machine.価格;
+        
+        // 島単位購入の割引を適用
+        if (quantity >= 20) {
+            totalPrice = calculateIslandPrice(machine.価格, quantity);
+        }
         
         if (totalPrice > this.gameState.money) {
             this.showMessage('エラー', '所持金が不足しています');
             return;
         }
         
-        this.showConfirmModal(
-            '購入確認',
-            `${this.gameState.selectedMachine['名前']}を${quantity}台購入しますか？\n合計: ¥${totalPrice.toLocaleString()}`,
-            () => this.executePurchase(quantity, totalPrice)
-        );
+        const message = `「${machine.名前}」を${quantity}台購入しますか？\n合計金額: ¥${totalPrice.toLocaleString()}`;
+        this.showConfirmModal('購入確認', message, () => this.executePurchase(quantity, totalPrice));
     }
 
     // 購入を実行
     executePurchase(quantity, totalPrice) {
-        const machineId = this.gameState.selectedMachine.ID;
-        const currentOwned = this.gameState.ownedMachines.get(machineId) || 0;
+        const machine = this.gameState.selectedMachine;
         
-        this.gameState.ownedMachines.set(machineId, currentOwned + quantity);
+        // 所持金を減らす
         this.gameState.money -= totalPrice;
+        
+        // 所有パチスロ台を更新
+        const currentOwned = this.gameState.ownedMachines.get(machine.ID) || 0;
+        this.gameState.ownedMachines.set(machine.ID, currentOwned + quantity);
         
         this.updateUI();
         this.updateOwnedMachinesList();
         this.updateSaleInfo();
         
-        this.showMessage('成功', `${this.gameState.selectedMachine['名前']}を${quantity}台購入しました！`);
-        this.hideModal('confirm-modal');
+        this.showMessage('購入完了', `「${machine.名前}」を${quantity}台購入しました！`);
     }
 
     // パチスロ台を売却
     sellMachine() {
-        if (!this.gameState.selectedMachine) {
-            this.showMessage('エラー', 'パチスロ台を選択してください');
-            return;
-        }
+        if (!this.gameState.selectedMachine) return;
         
-        const machineId = this.gameState.selectedMachine.ID;
-        const ownedQuantity = this.gameState.ownedMachines.get(machineId) || 0;
+        const quantity = parseInt(document.getElementById('sale-quantity').value);
+        const machine = this.gameState.selectedMachine;
+        const marketPrice = calculateUsedPrice(machine.価格, machine.総合人気度);
+        const salePrice = calculateSalePrice(marketPrice) * quantity;
         
-        if (ownedQuantity === 0) {
-            this.showMessage('エラー', 'このパチスロ台を所有していません');
-            return;
-        }
-        
-        const sellQuantity = parseInt(document.getElementById('sale-quantity').value);
-        if (sellQuantity === 0) return;
-        
-        const salePrice = this.calculateSalePrice(this.gameState.selectedMachine['価格']) * sellQuantity;
-        
-        this.showConfirmModal(
-            '売却確認',
-            `${this.gameState.selectedMachine['名前']}を${sellQuantity}台売却しますか？\n売却価格: ¥${salePrice.toLocaleString()}`,
-            () => this.executeSale(sellQuantity, salePrice)
-        );
+        const message = `「${machine.名前}」を${quantity}台売却しますか？\n売却価格: ¥${salePrice.toLocaleString()}`;
+        this.showConfirmModal('売却確認', message, () => this.executeSale(quantity, salePrice));
     }
 
     // 売却を実行
     executeSale(quantity, salePrice) {
-        const machineId = this.gameState.selectedMachine.ID;
-        const currentOwned = this.gameState.ownedMachines.get(machineId);
+        const machine = this.gameState.selectedMachine;
         
-        if (currentOwned <= quantity) {
-            this.gameState.ownedMachines.delete(machineId);
-        } else {
-            this.gameState.ownedMachines.set(machineId, currentOwned - quantity);
-        }
-        
+        // 所持金を増やす
         this.gameState.money += salePrice;
+        
+        // 所有パチスロ台を更新
+        const currentOwned = this.gameState.ownedMachines.get(machine.ID);
+        if (currentOwned <= quantity) {
+            this.gameState.ownedMachines.delete(machine.ID);
+        } else {
+            this.gameState.ownedMachines.set(machine.ID, currentOwned - quantity);
+        }
         
         this.updateUI();
         this.updateOwnedMachinesList();
         this.updateSaleInfo();
         
-        this.showMessage('成功', `${this.gameState.selectedMachine['名前']}を${quantity}台売却しました！`);
-        this.hideModal('confirm-modal');
+        this.showMessage('売却完了', `「${machine.名前}」を${quantity}台売却しました！`);
     }
 
-    // 次の週へ
+    // 次の週に進む
     nextWeek() {
         this.gameState.currentWeek++;
+        
+        // 人気度変動を実行
+        this.machineData.advanceWeek(this.gameState.currentWeek);
+        
+        // 人気度変動メッセージを生成
+        this.generateWeeklyMessages();
+        
+        // UIを更新
         this.updateUI();
-        this.showMessage('進行', `${this.gameState.currentWeek}週目になりました！`);
+        this.displayMachines();
+        this.displayPopularityMessages();
+        
+        // 選択中のパチスロ台の詳細も更新
+        if (this.gameState.selectedMachine) {
+            const updatedMachine = this.machineData.getAllMachines().find(m => m.ID === this.gameState.selectedMachine.ID);
+            if (updatedMachine) {
+                this.gameState.selectedMachine = updatedMachine;
+                this.displayMachineDetail(updatedMachine);
+                this.updateSaleInfo();
+            }
+        }
+        
+        this.showMessage('週次更新', `第${this.gameState.currentWeek}週になりました。人気度が変動しています。`);
+    }
+
+    // 週次メッセージを生成
+    generateWeeklyMessages() {
+        this.popularityMessages = [];
+        
+        // 人気度変動が大きいパチスロ台のメッセージを生成
+        this.machineData.getAllMachines().forEach(machine => {
+            const history = this.machineData.getPopularityHistory(machine.ID);
+            if (history.length >= 2) {
+                const lastChange = history[history.length - 1];
+                if (Math.abs(lastChange.change) > 0.5) {
+                    const forecast = generatePopularityForecast(machine, lastChange.popularity, lastChange.change);
+                    this.popularityMessages.push({
+                        machine: machine,
+                        message: forecast.message,
+                        type: forecast.type,
+                        change: lastChange.change
+                    });
+                }
+            }
+        });
+        
+        // メッセージを最大5件まで制限
+        this.popularityMessages = this.popularityMessages.slice(0, 5);
+    }
+
+    // 人気度変動メッセージを表示
+    displayPopularityMessages() {
+        const messageArea = document.getElementById('popularity-messages');
+        if (!messageArea) return;
+        
+        if (this.popularityMessages.length === 0) {
+            messageArea.innerHTML = '<p class="no-messages">人気度変動のメッセージはありません</p>';
+            return;
+        }
+        
+        let messagesHtml = '<h3>人気度変動情報</h3>';
+        this.popularityMessages.forEach(msg => {
+            const changeIcon = msg.change > 0 ? '📈' : '📉';
+            const changeClass = msg.change > 0 ? 'positive' : 'negative';
+            messagesHtml += `
+                <div class="message-item ${changeClass}">
+                    <div class="message-header">
+                        <span class="change-icon">${changeIcon}</span>
+                        <span class="machine-name">${msg.machine.名前}</span>
+                        <span class="change-value">${msg.change > 0 ? '+' : ''}${msg.change}</span>
+                    </div>
+                    <div class="message-text">${msg.message}</div>
+                </div>
+            `;
+        });
+        
+        messageArea.innerHTML = messagesHtml;
     }
 
     // ゲームをリセット
     resetGame() {
-        this.showConfirmModal(
-            'リセット確認',
-            'ゲームをリセットしますか？\n全ての進行状況と所持品が失われます。',
-            () => this.executeReset()
-        );
+        this.showConfirmModal('リセット確認', 'ゲームをリセットしますか？\n全ての進行状況が失われます。', () => this.executeReset());
     }
 
     // リセットを実行
@@ -395,39 +552,43 @@ class PachislotSimulator {
             selectedMachine: null
         };
         
-        this.updateUI();
-        this.updateOwnedMachinesList();
-        this.displayMachineDetail({});
-        document.getElementById('trade-panel').style.display = 'none';
+        this.popularityMessages = [];
         
-        this.showMessage('リセット完了', 'ゲームがリセットされました');
-        this.hideModal('confirm-modal');
+        // CSVデータを再読み込み
+        this.loadMachineData().then(() => {
+            this.updateUI();
+            this.displayMachines();
+            this.displayPopularityMessages();
+            this.showMessage('リセット完了', 'ゲームがリセットされました');
+        });
     }
 
     // 所有パチスロ台リストを更新
     updateOwnedMachinesList() {
         const ownedList = document.getElementById('owned-machines-list');
+        ownedList.innerHTML = '';
         
         if (this.gameState.ownedMachines.size === 0) {
-            ownedList.innerHTML = '<p class="no-machines">まだパチスロ台を所有していません</p>';
+            ownedList.innerHTML = '<p class="no-owned">所有しているパチスロ台はありません</p>';
             return;
         }
         
-        ownedList.innerHTML = '';
-        
         this.gameState.ownedMachines.forEach((quantity, machineId) => {
-            const machine = this.machineData.getMachineById(machineId);
+            const machine = this.machineData.getAllMachines().find(m => m.ID == machineId);
             if (machine) {
-                const ownedItem = document.createElement('div');
-                ownedItem.className = 'owned-machine-item';
-                ownedItem.innerHTML = `
-                    <h4>${machine['名前']}</h4>
-                    <div class="machine-stats">
-                        <span>所持数: ${quantity}台</span>
-                        <span>購入価格: ¥${machine['価格'].toLocaleString()}</span>
+                const div = document.createElement('div');
+                div.className = 'owned-machine-item';
+                div.innerHTML = `
+                    <div class="owned-machine-header">
+                        <h4>${machine.名前}</h4>
+                        <span class="quantity">${quantity}台</span>
+                    </div>
+                    <div class="owned-machine-details">
+                        <p>人気度: ${machine.総合人気度}</p>
+                        <p>購入価格: ¥${machine.価格.toLocaleString()}</p>
                     </div>
                 `;
-                ownedList.appendChild(ownedItem);
+                ownedList.appendChild(div);
             }
         });
     }
@@ -436,25 +597,22 @@ class PachislotSimulator {
     updateUI() {
         document.getElementById('current-week').textContent = this.gameState.currentWeek;
         document.getElementById('current-money').textContent = `¥${this.gameState.money.toLocaleString()}`;
-        
-        const totalOwned = Array.from(this.gameState.ownedMachines.values()).reduce((sum, qty) => sum + qty, 0);
-        document.getElementById('owned-machines').textContent = `${totalOwned}台`;
+        document.getElementById('owned-count').textContent = this.gameState.ownedMachines.size;
     }
 
     // 確認モーダルを表示
     showConfirmModal(title, message, onConfirm) {
+        this.confirmedCallback = onConfirm;
         document.getElementById('modal-title').textContent = title;
         document.getElementById('modal-message').textContent = message;
-        document.getElementById('confirm-modal').style.display = 'flex';
-        
-        this.confirmCallback = onConfirm;
+        document.getElementById('confirm-modal').style.display = 'block';
     }
 
     // メッセージモーダルを表示
     showMessage(title, message) {
         document.getElementById('message-title').textContent = title;
         document.getElementById('message-text').textContent = message;
-        document.getElementById('message-modal').style.display = 'flex';
+        document.getElementById('message-modal').style.display = 'block';
     }
 
     // モーダルを非表示
@@ -464,13 +622,15 @@ class PachislotSimulator {
 
     // 確認されたアクションを実行
     executeConfirmedAction() {
-        if (this.confirmCallback) {
-            this.confirmCallback();
+        if (this.confirmedCallback) {
+            this.confirmedCallback();
+            this.confirmedCallback = null;
         }
+        this.hideModal('confirm-modal');
     }
 }
 
-// ページ読み込み完了後にシミュレーターを初期化
+// ページ読み込み完了時にシミュレーターを初期化
 document.addEventListener('DOMContentLoaded', () => {
     window.simulator = new PachislotSimulator();
 });

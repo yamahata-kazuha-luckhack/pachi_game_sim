@@ -1,4 +1,4 @@
-// パチンコホールシミュレーター ゲーム設定ファイル
+// パチスロホールシミュレーター ゲーム設定ファイル
 
 const GAME_CONFIG = {
   // 基本設定
@@ -68,7 +68,12 @@ const GAME_CONFIG = {
   POPULARITY_CHANGE: {
     MAX_CHANGE_PER_WEEK: 1.0, // 1週間あたりの最大変化量
     GRADUAL_CHANGE: true,     // 急激な変化を防ぐ
-    FORECAST_MESSAGES: true   // 次の人気度を推測できるメッセージを表示
+    FORECAST_MESSAGES: true,  // 次の人気度を推測できるメッセージを表示
+    TREND_DURATION: 3,        // トレンドの持続週数
+    VOLATILITY_FACTOR: 0.3,   // 変動性の係数
+    IP_INFLUENCE: 0.4,        // IP人気度の影響力
+    SPEC_INFLUENCE: 0.3,      // スペックの影響力
+    RELEASE_INFLUENCE: 0.3    // 発売日の影響力
   },
   
   // メッセージテンプレート
@@ -78,13 +83,23 @@ const GAME_CONFIG = {
       "{ip_name}の評判が上がっている",
       "{ip_name}が話題になっている",
       "{ip_name}の人気が急上昇中",
-      "{ip_name}が注目を集めている"
+      "{ip_name}が注目を集めている",
+      "{ip_name}の口コミが広がっている",
+      "{ip_name}がSNSで話題になっている"
     ],
     POPULARITY_DECLINE: [
       "{ip_name}の話題が減ってきた",
       "{ip_name}の評判が下がっている",
       "{ip_name}の人気が落ち着いてきた",
-      "{ip_name}の話題性が薄れてきた"
+      "{ip_name}の話題性が薄れてきた",
+      "{ip_name}の新鮮味が薄れてきた",
+      "{ip_name}の評判が悪くなっている"
+    ],
+    POPULARITY_STABLE: [
+      "{ip_name}の人気は安定している",
+      "{ip_name}の評判は変わらない",
+      "{ip_name}は相変わらず人気がある",
+      "{ip_name}の話題性は維持されている"
     ]
   }
 };
@@ -107,6 +122,72 @@ function calculatePopularity(spec, ip, releaseDate) {
   );
   
   return Math.round(totalPopularity * 10) / 10; // 小数点第1位まで
+}
+
+// 週次人気度変動を計算
+function calculateWeeklyPopularityChange(machine, currentWeek, previousPopularity) {
+  const baseChange = (Math.random() - 0.5) * 2 * GAME_CONFIG.POPULARITY_CHANGE.MAX_CHANGE_PER_WEEK;
+  
+  // IP人気度の影響
+  const ipInfluence = (machine.人気度_IP - 5) * GAME_CONFIG.POPULARITY_CHANGE.IP_INFLUENCE * 0.1;
+  
+  // スペックの影響
+  const specInfluence = (machine.人気度_スペック - 5) * GAME_CONFIG.POPULARITY_CHANGE.SPEC_INFLUENCE * 0.1;
+  
+  // 発売日の影響（新しいほど変動しやすい）
+  const daysSinceRelease = Math.floor((new Date() - new Date(machine.発売日)) / (1000 * 60 * 60 * 24));
+  const releaseInfluence = Math.max(0, (365 - daysSinceRelease) / 365) * GAME_CONFIG.POPULARITY_CHANGE.RELEASE_INFLUENCE;
+  
+  // 急激な変化を防ぐ
+  let change = baseChange + ipInfluence + specInfluence + releaseInfluence;
+  
+  if (GAME_CONFIG.POPULARITY_CHANGE.GRADUAL_CHANGE) {
+    const maxChange = GAME_CONFIG.POPULARITY_CHANGE.MAX_CHANGE_PER_WEEK;
+    change = Math.max(-maxChange, Math.min(maxChange, change));
+  }
+  
+  // 人気度の範囲内に収める
+  const newPopularity = Math.max(0, Math.min(10, previousPopularity + change));
+  
+  return {
+    newPopularity: Math.round(newPopularity * 10) / 10,
+    change: Math.round(change * 10) / 10,
+    factors: {
+      base: Math.round(baseChange * 10) / 10,
+      ip: Math.round(ipInfluence * 10) / 10,
+      spec: Math.round(specInfluence * 10) / 10,
+      release: Math.round(releaseInfluence * 10) / 10
+    }
+  };
+}
+
+// 人気度予測メッセージを生成
+function generatePopularityForecast(machine, currentPopularity, predictedChange) {
+  const ipName = machine.名前.replace(/SP|CR|P|S|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y|Z|[0-9]|号機/g, '').trim();
+  
+  let message = '';
+  let messageType = 'stable';
+  
+  if (predictedChange > 0.3) {
+    const templates = GAME_CONFIG.MESSAGE_TEMPLATES.POPULARITY_FORECAST;
+    message = templates[Math.floor(Math.random() * templates.length)].replace('{ip_name}', ipName);
+    messageType = 'increase';
+  } else if (predictedChange < -0.3) {
+    const templates = GAME_CONFIG.MESSAGE_TEMPLATES.POPULARITY_DECLINE;
+    message = templates[Math.floor(Math.random() * templates.length)].replace('{ip_name}', ipName);
+    messageType = 'decrease';
+  } else {
+    const templates = GAME_CONFIG.MESSAGE_TEMPLATES.POPULARITY_STABLE;
+    message = templates[Math.floor(Math.random() * templates.length)].replace('{ip_name}', ipName);
+    messageType = 'stable';
+  }
+  
+  return {
+    message: message,
+    type: messageType,
+    change: predictedChange,
+    confidence: Math.min(0.9, Math.abs(predictedChange) * 2) // 変動が大きいほど確信度が高い
+  };
 }
 
 // 人気度のTierを取得
@@ -160,6 +241,8 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     GAME_CONFIG,
     calculatePopularity,
+    calculateWeeklyPopularityChange,
+    generatePopularityForecast,
     getPopularityTier,
     calculateUsedPrice,
     calculateIslandPrice,

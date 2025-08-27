@@ -8,7 +8,6 @@
 </head>
 <body>
     <div class="container">
-        <!-- ヘッダー -->
         <header class="header">
             <h1>🎰 パチスロホールシミュレーター</h1>
             <div class="game-info">
@@ -22,148 +21,145 @@
                 </div>
                 <div class="info-item">
                     <span class="label">所有台数:</span>
-                    <span id="owned-machines">0台</span>
+                    <span id="owned-count">0</span>
                 </div>
             </div>
         </header>
 
-        <!-- メインコンテンツ -->
         <main class="main-content">
-            <!-- 左サイドバー: パチスロ台一覧 -->
             <aside class="sidebar">
-                <div class="sidebar-header">
-                    <h2>パチスロ台一覧</h2>
+                <div class="search-section">
+                    <h3>🔍 検索・フィルター</h3>
                     <div class="search-box">
-                        <input type="text" id="search-input" placeholder="検索...">
-                        <button id="search-btn">🔍</button>
+                        <input type="text" id="search-input" placeholder="パチスロ台名、メーカー、IPタイプで検索...">
+                        <button id="search-btn">検索</button>
                     </div>
-                    <div class="filter-controls">
+                    <div class="filter-box">
                         <select id="maker-filter">
-                            <option value="">全メーカー</option>
+                            <option value="all">全メーカー</option>
                             <option value="サミー">サミー</option>
                             <option value="京楽">京楽</option>
-                            <option value="北電子">北電子</option>
-                            <option value="藤商事">藤商事</option>
-                            <option value="パイオニア">パイオニア</option>
                             <option value="平和">平和</option>
+                            <option value="北電子">北電子</option>
+                            <option value="オリンピア">オリンピア</option>
                         </select>
                         <select id="popularity-filter">
-                            <option value="">全人気度</option>
-                            <option value="high">高人気</option>
-                            <option value="medium">普通人気</option>
-                            <option value="low">低人気</option>
+                            <option value="all">全人気度</option>
+                            <option value="HIGH_TIER_1">超高人気 Tier 1</option>
+                            <option value="HIGH_TIER_2">超高人気 Tier 2</option>
+                            <option value="HIGH_TIER_3">超高人気 Tier 3</option>
+                            <option value="HIGH_TIER_4">高人気 Tier 4</option>
+                            <option value="HIGH_TIER_5">高人気 Tier 5</option>
+                            <option value="MEDIUM">普通人気</option>
+                            <option value="LOW_TIER_1">低人気 Tier 1</option>
+                            <option value="LOW_TIER_2">低人気 Tier 2</option>
+                            <option value="LOW_TIER_3">低人気 Tier 3</option>
+                            <option value="LOW_TIER_4">低人気 Tier 4</option>
+                            <option value="LOW_TIER_5">低人気 Tier 5</option>
                         </select>
                     </div>
                 </div>
-                
-                <div class="machine-list" id="machine-list">
-                    <!-- パチスロ台のリストがここに動的に表示される -->
+
+                <div class="machine-list-section">
+                    <h3>📋 パチスロ台一覧</h3>
+                    <div id="machine-list" class="machine-list">
+                        <!-- パチスロ台一覧がここに表示されます -->
+                    </div>
+                </div>
+
+                <div class="popularity-messages-section">
+                    <div id="popularity-messages" class="popularity-messages">
+                        <!-- 人気度変動メッセージがここに表示されます -->
+                    </div>
                 </div>
             </aside>
 
-            <!-- 中央: メインエリア -->
             <section class="main-area">
-                <!-- 選択されたパチスロ台の詳細 -->
-                <div class="machine-detail" id="machine-detail">
-                    <div class="detail-header">
-                        <h3>パチスロ台を選択してください</h3>
-                    </div>
-                    <div class="detail-content">
-                        <p>左側のリストからパチスロ台を選択すると、詳細情報と購入・売却オプションが表示されます。</p>
-                    </div>
+                <div id="machine-detail" class="machine-detail">
+                    <p class="select-prompt">パチスロ台を選択してください</p>
                 </div>
 
-                <!-- 購入・売却パネル -->
-                <div class="trade-panel" id="trade-panel" style="display: none;">
-                    <div class="panel-header">
-                        <h3>取引パネル</h3>
-                    </div>
-                    <div class="panel-content">
-                        <div class="purchase-section">
-                            <h4>購入</h4>
-                            <div class="purchase-controls">
-                                <label for="purchase-quantity">購入台数:</label>
-                                <select id="purchase-quantity">
-                                    <option value="1">1台</option>
-                                    <option value="5">5台</option>
-                                    <option value="10">10台</option>
-                                    <option value="20">1島(20台)</option>
-                                </select>
-                                <button id="purchase-btn" class="btn btn-primary">購入</button>
-                            </div>
-                            <div class="purchase-info">
-                                <span>単価: <span id="unit-price">¥0</span></span>
-                                <span>合計: <span id="total-price">¥0</span></span>
-                            </div>
+                <div id="trade-panel" class="trade-panel" style="display: none;">
+                    <h3>💰 取引パネル</h3>
+                    
+                    <div class="purchase-section">
+                        <h4>購入</h4>
+                        <div class="trade-controls">
+                            <label for="purchase-quantity">数量:</label>
+                            <select id="purchase-quantity">
+                                <option value="1">1台</option>
+                                <option value="5">5台</option>
+                                <option value="10">10台</option>
+                                <option value="20">20台（島単位）</option>
+                                <option value="50">50台</option>
+                                <option value="100">100台</option>
+                            </select>
+                            <button id="purchase-btn">購入</button>
                         </div>
-                        
-                        <div class="sale-section">
-                            <h4>売却</h4>
-                            <div class="sale-controls">
-                                <label for="sale-quantity">売却台数:</label>
-                                <select id="sale-quantity">
-                                    <option value="1">1台</option>
-                                    <option value="5">5台</option>
-                                    <option value="10">10台</option>
-                                    <option value="all">全台</option>
-                                </select>
-                                <button id="sale-btn" class="btn btn-secondary">売却</button>
-                            </div>
-                            <div class="sale-info">
-                                <span>売却価格: <span id="sale-price">¥0</span></span>
-                            </div>
+                        <div class="price-info">
+                            <p>合計価格: <span id="purchase-total">¥0</span></p>
+                            <p id="island-discount" style="display: none; color: #28a745; font-weight: bold;"></p>
+                        </div>
+                    </div>
+
+                    <div id="sale-section" class="sale-section" style="display: none;">
+                        <h4>売却</h4>
+                        <div class="trade-controls">
+                            <label for="sale-quantity">数量:</label>
+                            <select id="sale-quantity">
+                                <option value="1">1台</option>
+                            </select>
+                            <button id="sale-btn">売却</button>
+                        </div>
+                        <div class="price-info">
+                            <p>売却価格: <span id="sale-price">¥0</span></p>
+                            <p id="market-price">市場価格: ¥0</p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- 右サイドバー: 所有パチスロ台 -->
             <aside class="sidebar right-sidebar">
-                <div class="sidebar-header">
-                    <h2>所有パチスロ台</h2>
-                </div>
-                <div class="owned-machines-list" id="owned-machines-list">
-                    <p class="no-machines">まだパチスロ台を所有していません</p>
+                <div class="owned-machines-section">
+                    <h3>🏠 所有パチスロ台</h3>
+                    <div id="owned-machines-list" class="owned-machines-list">
+                        <p class="no-owned">所有しているパチスロ台はありません</p>
+                    </div>
                 </div>
             </aside>
         </main>
 
-        <!-- フッター: ゲームコントロール -->
         <footer class="footer">
             <div class="game-controls">
-                <button id="next-week-btn" class="btn btn-success">次の週へ</button>
-                <button id="reset-game-btn" class="btn btn-danger">ゲームリセット</button>
-            </div>
-            <div class="game-status">
-                <span id="game-status">ゲーム準備完了</span>
+                <button id="next-week-btn" class="btn btn-primary">次の週へ</button>
+                <button id="reset-game-btn" class="btn btn-secondary">ゲームリセット</button>
             </div>
         </footer>
-    </div>
 
-    <!-- モーダル: 確認ダイアログ -->
-    <div id="confirm-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h3 id="modal-title">確認</h3>
-            <p id="modal-message">この操作を実行しますか？</p>
-            <div class="modal-buttons">
-                <button id="modal-confirm" class="btn btn-primary">確認</button>
-                <button id="modal-cancel" class="btn btn-secondary">キャンセル</button>
+        <!-- 確認モーダル -->
+        <div id="confirm-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 id="modal-title">確認</h3>
+                <p id="modal-message">処理を続行しますか？</p>
+                <div class="modal-buttons">
+                    <button id="modal-cancel" class="btn btn-secondary">キャンセル</button>
+                    <button id="modal-confirm" class="btn btn-primary">確認</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- メッセージモーダル -->
+        <div id="message-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h3 id="message-title">メッセージ</h3>
+                <p id="message-text">メッセージが表示されます</p>
+                <div class="modal-buttons">
+                    <button id="message-close" class="btn btn-primary">閉じる</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- モーダル: メッセージ表示 -->
-    <div id="message-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h3 id="message-title">メッセージ</h3>
-            <p id="message-text"></p>
-            <div class="modal-buttons">
-                <button id="message-close" class="btn btn-primary">閉じる</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- JavaScript -->
     <script src="../config/game_config.js"></script>
     <script src="../utils/csv_parser.js"></script>
     <script src="simulator.js"></script>
