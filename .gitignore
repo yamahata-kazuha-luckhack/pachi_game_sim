@@ -345,3 +345,12 @@ crashlytics-build.properties
 
 # Cursor
 .cursor/
+
+# Config files
+config.js
+.env
+.env.local
+.env.production
+
+# Scripts directory
+scripts/
